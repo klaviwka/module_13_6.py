@@ -17,12 +17,10 @@ class UserState(StatesGroup):
     weight = State()
 
 
-
 keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 button_calculate = KeyboardButton('Рассчитать')
 button_info = KeyboardButton('Информация')
 keyboard.add(button_calculate, button_info)
-
 
 inline_keyboard = InlineKeyboardMarkup(row_width=2)
 button_calories = InlineKeyboardButton('Рассчитать норму калорий', callback_data='calories')
@@ -32,37 +30,37 @@ inline_keyboard.add(button_calories, button_formulas)
 
 @dp.message_handler(commands=['start'])
 async def start_command(message: types.Message):
-    await message.reply('Привет! Я бот, помогающий твоему здоровью.\nВыберите действие:', reply_markup=keyboard)
+    await message.answer('Привет! Я бот, помогающий твоему здоровью.\nВыберите действие:', reply_markup=keyboard)
 
 
 @dp.message_handler(lambda message: message.text.lower() == 'рассчитать')
 async def main_menu(message: types.Message):
-    await message.reply('Выберите опцию:', reply_markup=inline_keyboard)
+    await message.answer('Выберите опцию:', reply_markup=inline_keyboard)
 
 
 @dp.callback_query_handler(lambda call: call.data == 'formulas')
 async def get_formulas(call: types.CallbackQuery):
-    await call.message.reply(
-        "Формула Миффлина-Сан Жеора:\n\nДля женщин:\nBMR = 10 * вес (кг) + 6.25 * рост (см) - 5 * возраст (лет) - 161\n\nДля мужчин:\nBMR = 10 * вес (кг) + 6.25 * рост (см) - 5 * возраст (лет) + 5")
-
+    await call.message.answer(
+        "10 x вес (кг) + 6.25 х рост (см) - 5 х возраст (г) - 161"
+    )
 
 @dp.callback_query_handler(lambda call: call.data == 'calories')
 async def ask_age(call: types.CallbackQuery):
-    await call.message.reply('Введите свой возраст:')
+    await call.message.answer('Введите свой возраст:')
     await UserState.age.set()
 
 
 @dp.message_handler(state=UserState.age)
 async def ask_growth(message: types.Message, state: FSMContext):
     await state.update_data(age=message.text)
-    await message.reply('Введите свой рост (в см):')
+    await message.answer('Введите свой рост (в см):')
     await UserState.growth.set()
 
 
 @dp.message_handler(state=UserState.growth)
 async def ask_weight(message: types.Message, state: FSMContext):
     await state.update_data(growth=message.text)
-    await message.reply('Введите свой вес (в кг):')
+    await message.answer('Введите свой вес (в кг):')
     await UserState.weight.set()
 
 
@@ -75,26 +73,33 @@ async def calculate_calories(message: types.Message, state: FSMContext):
     growth = float(data.get('growth'))
     weight = float(data.get('weight'))
 
-   
+    # Формула для расчета калорий
+    if age < 18:
+        await message.answer(
+            "Пожалуйста, введите корректные данные. Я не могу рассчитать калории для лиц младше 18 лет.")
+        return
+
+
     calories = 10 * weight + 6.25 * growth - 5 * age - 161
-    await message.reply(f'Ваши калории: {calories:.2f}', reply_markup=keyboard)
+    await message.answer(f'Ваши калории: {calories:.2f}', reply_markup=keyboard)
     await state.finish()
 
 
 @dp.message_handler(lambda message: message.text.lower() == 'информация')
 async def show_info(message: types.Message):
-    await message.reply("Я бот, который помогает рассчитывать ваши калории. Нажмите 'Рассчитать', чтобы начать!",
-                        reply_markup=keyboard)
+    await message.answer("Я бот, который помогает рассчитывать ваши калории. Нажмите 'Рассчитать', чтобы начать!",
+                         reply_markup=keyboard)
 
 
 @dp.message_handler(lambda message: True)
 async def fallback(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
     if current_state is None:
-        await message.reply("Для начала работы с ботом введите /start или нажмите 'Рассчитать'.", reply_markup=keyboard)
+        await message.answer("Для начала работы с ботом введите /start или нажмите 'Рассчитать'.",
+                             reply_markup=keyboard)
     else:
-        await message.reply("Пожалуйста, следуйте инструкциям и введите данные в нужном формате.",
-                            reply_markup=keyboard)
+        await message.answer("Пожалуйста, следуйте инструкциям и введите данные в нужном формате.",
+                             reply_markup=keyboard)
 
 
 if __name__ == '__main__':
